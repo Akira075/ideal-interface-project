@@ -7,33 +7,44 @@ import { PERMISSIONS } from "@/lib/types";
 import { toast } from "@/hooks/use-toast";
 import PageHeader, { Pill } from "@/components/app/PageHeader";
 
-function Login() {
-  const { db, login } = useStore();
+export function AuthScreen() {
+  const { db, login, register } = useStore();
+  const [mode, setMode] = useState<"register" | "login">("register");
   const [u, setU] = useState("");
+  const [nick, setNick] = useState("");
+  const [name, setName] = useState("");
   const [p, setP] = useState("");
   const [err, setErr] = useState("");
-  const submit = () => {
-    if (!u || !p) return setErr("Заполните оба поля");
-    const e = login(u, p);
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (!u || !p) return setErr("Заполните логин и пароль");
+    if (mode === "register" && p.length < 6) return setErr("Пароль — от 6 символов");
+    setBusy(true);
+    const e = mode === "login" ? await login(u, p) : await register({ username: u, nickname: nick, fullName: name, password: p });
+    setBusy(false);
     setErr(e || "");
   };
+  const field = "rounded-xl bg-background";
   return (
-    <div className="banner-glow flex min-h-[calc(100vh-68px)] items-center justify-center px-4">
+    <div className="banner-glow flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-5 rounded-2xl bg-card p-7 animate-scale-in">
         <div>
-          <h1 className="font-head text-3xl font-medium">Вход</h1>
+          <h1 className="font-head text-3xl font-medium">{mode === "register" ? "Регистрация" : "Вход"}</h1>
           <p className="mt-1 text-muted-foreground">в {db.settings.siteName}</p>
         </div>
-        <div className="space-y-2"><Label>Логин или ник</Label><Input value={u} onChange={(e) => setU(e.target.value)} className="rounded-xl bg-background" /></div>
-        <div className="space-y-2"><Label>Пароль</Label><Input type="password" value={p} onChange={(e) => setP(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} className="rounded-xl bg-background" /></div>
+        <div className="space-y-2"><Label>Логин</Label><Input value={u} onChange={(e) => setU(e.target.value)} className={field} /></div>
+        {mode === "register" && (
+          <>
+            <div className="space-y-2"><Label>Ник</Label><Input value={nick} onChange={(e) => setNick(e.target.value)} placeholder="Как вас видят другие" className={field} /></div>
+            <div className="space-y-2"><Label>Имя</Label><Input value={name} onChange={(e) => setName(e.target.value)} className={field} /></div>
+          </>
+        )}
+        <div className="space-y-2"><Label>Пароль</Label><Input type="password" value={p} onChange={(e) => setP(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} className={field} /></div>
         {err && <p className="text-sm text-destructive">{err}</p>}
-        <Pill onClick={submit} className="w-full justify-center py-3">Войти</Pill>
-        <div className="space-y-1 rounded-xl border border-border p-3 text-xs text-muted-foreground">
-          <div className="mb-1 font-medium text-foreground">Демо-аккаунты</div>
-          {[["Astrovskii", "astrovskiiDev1", "Разработчик"], ["oleg", "oleg123", "Администратор"], ["marina", "marina123", "Учитель"], ["ivan", "ivan123", "Ученик"]].map(([l, pw, r]) => (
-            <button key={l} onClick={() => { setU(l); setP(pw); }} className="flex w-full justify-between rounded-md px-1 py-0.5 hover:bg-accent hover:text-foreground"><span>{l}</span><span>{r}</span></button>
-          ))}
-        </div>
+        <Pill onClick={submit} className="w-full justify-center py-3">{busy ? "Подождите…" : mode === "register" ? "Зарегистрироваться" : "Войти"}</Pill>
+        <button onClick={() => { setMode(mode === "register" ? "login" : "register"); setErr(""); }} className="w-full text-center text-sm text-muted-foreground hover:text-foreground">
+          {mode === "register" ? "Уже есть аккаунт? Войти" : "Нет аккаунта? Зарегистрироваться"}
+        </button>
       </div>
     </div>
   );
@@ -43,16 +54,14 @@ export default function Profile() {
   const { db, user, role, update, log, logout } = useStore();
   const [fullName, setFullName] = useState(user?.fullName || "");
   const [nick, setNick] = useState(user?.nickname || "");
-  const [pw, setPw] = useState("");
-  if (!user) return <Login />;
+  if (!user) return <AuthScreen />;
 
   const myResults = db.results.filter((r) => r.userId === user.id);
   const passed = myResults.filter((r) => r.passed).length;
 
   const save = () => {
-    update((d) => ({ ...d, users: d.users.map((u) => (u.id === user.id ? { ...u, fullName, nickname: nick || u.nickname, password: pw.length >= 6 ? pw : u.password } : u)) }));
-    log(pw ? "Изменил профиль и пароль" : "Изменил профиль", "users");
-    setPw("");
+    update((d) => ({ ...d, users: d.users.map((u) => (u.id === user.id ? { ...u, fullName, nickname: nick || u.nickname } : u)) }));
+    log("Изменил профиль", "users");
     toast({ title: "Профиль сохранён" });
   };
 
@@ -72,7 +81,6 @@ export default function Profile() {
               <div className="space-y-2"><Label>Имя</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="rounded-xl bg-background" /></div>
               <div className="space-y-2"><Label>Ник</Label><Input value={nick} onChange={(e) => setNick(e.target.value)} className="rounded-xl bg-background" /></div>
             </div>
-            <div className="space-y-2"><Label>Новый пароль (от 6 символов)</Label><Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} className="rounded-xl bg-background" /></div>
             <Pill onClick={save}>Сохранить</Pill>
           </div>
         </div>

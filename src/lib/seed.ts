@@ -48,11 +48,7 @@ export function createSeed(): DB {
       { id: "student", name: "Ученик", color: "240 2% 70%", system: true, permissions: ["tests.take"] },
     ],
     users: [
-      { id: "u1", username: "Astrovskii", nickname: "Amir_Karver", fullName: "Супер-Разработчик", role: "dev", status: "active", groups: ["core"], password: "astrovskiiDev1", createdAt: ago(30000) },
-      { id: "u2", username: "oleg", nickname: "Oleg_Admin", fullName: "Олег Смирнов", role: "admin", status: "active", groups: ["core"], password: "oleg123", createdAt: ago(20000) },
-      { id: "u3", username: "marina", nickname: "Marina_T", fullName: "Марина Тихонова", role: "teacher", status: "active", groups: ["a1"], password: "marina123", createdAt: ago(15000) },
-      { id: "u4", username: "ivan", nickname: "Ivan_K", fullName: "Иван Ковалёв", role: "student", status: "active", groups: ["a1"], password: "ivan123", createdAt: ago(9000) },
-      { id: "u5", username: "anna", nickname: "Anna_S", fullName: "Анна Соколова", role: "student", status: "pending", groups: [], password: "anna123", createdAt: ago(500) },
+      { id: "db1", username: "Astrovskii", nickname: "Amir_Karver", fullName: "Супер-Разработчик", role: "dev", status: "active", groups: ["core"], createdAt: ago(30000) },
     ],
     sections: [
       { id: "home", title: "Обзор", icon: "LayoutGrid", order: 1, visible: true, roles: [], builtin: true, description: "Главная страница" },
@@ -75,9 +71,9 @@ export function createSeed(): DB {
       { id: "t4", title: "Регламент администратора", category: "Регламент", description: "Итоговая аттестация по регламенту.", questionIds: ["q2", "q3", "q4", "q5"], passScore: 75, timeLimit: 15, maxAttempts: 1, groupCode: "core", isBlocked: false, createdAt: ago(4000) },
     ],
     results: [
-      ...Array.from({ length: 52 }, (_, i) => ({ id: "r1_" + i, userId: i % 2 ? "u4" : "u3", testId: "t1", nickname: i % 2 ? "Ivan_K" : "Marina_T", score: i < 48 ? 80 + (i % 20) : 40, passed: i < 48, date: ago(i * 60) })),
-      ...Array.from({ length: 41 }, (_, i) => ({ id: "r2_" + i, userId: "u4", testId: "t2", nickname: "Ivan_K", score: i < 31 ? 75 + (i % 25) : 50, passed: i < 31, date: ago(i * 90) })),
-      ...Array.from({ length: 24 }, (_, i) => ({ id: "r3_" + i, userId: "u3", testId: "t3", nickname: "Marina_T", score: 85 + (i % 15), passed: true, date: ago(i * 120) })),
+      ...Array.from({ length: 52 }, (_, i) => ({ id: "r1_" + i, userId: "demo", testId: "t1", nickname: i % 2 ? "Ivan_K" : "Marina_T", score: i < 48 ? 80 + (i % 20) : 40, passed: i < 48, date: ago(i * 60) })),
+      ...Array.from({ length: 41 }, (_, i) => ({ id: "r2_" + i, userId: "demo", testId: "t2", nickname: "Ivan_K", score: i < 31 ? 75 + (i % 25) : 50, passed: i < 31, date: ago(i * 90) })),
+      ...Array.from({ length: 24 }, (_, i) => ({ id: "r3_" + i, userId: "demo", testId: "t3", nickname: "Marina_T", score: 85 + (i % 15), passed: true, date: ago(i * 120) })),
     ],
     groups: [
       { id: "g1", code: "core", name: "Основной состав", description: "Администрация и разработчики" },
@@ -94,12 +90,12 @@ export function createSeed(): DB {
       { id: "f4", q: "Куда писать, если что-то сломалось?", a: "В раздел «Поддержка». Создайте обращение — разработчик ответит в течение дня." },
     ],
     tickets: [
-      { id: "k1", userId: "u4", subject: "Не открывается тест", status: "open", date: ago(30), messages: [
+      { id: "k1", userId: "demo", subject: "Не открывается тест", status: "open", date: ago(30), messages: [
         { id: "m1", from: "u4", name: "Ivan_K", role: "student", text: "Тест «Регламент администратора» пишет, что нет доступа.", date: ago(30) },
         { id: "m2", from: "u2", name: "Oleg_Admin", role: "admin", text: "Тест доступен только группе «Основной состав». Добавим вас после аттестации.", date: ago(18) },
       ] },
     ],
     logs,
-    sessionUserId: "u1",
+    sessionUserId: null,
   };
 }

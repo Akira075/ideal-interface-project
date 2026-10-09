@@ -11,7 +11,7 @@ import Groups from "@/components/sections/Groups";
 import News from "@/components/sections/News";
 import FaqSection from "@/components/sections/FaqSection";
 import Support from "@/components/sections/Support";
-import Profile from "@/components/sections/Profile";
+import Profile, { AuthScreen } from "@/components/sections/Profile";
 import DevPanel from "@/components/sections/DevPanel";
 import CustomSection from "@/components/sections/CustomSection";
 
@@ -48,8 +48,10 @@ function Content() {
   }
 }
 
-const Index = () => (
-  <StoreProvider>
+function Shell() {
+  const { user } = useStore();
+  if (!user) return <div className="min-h-screen bg-background text-foreground"><AuthScreen /></div>;
+  return (
     <div className="flex min-h-screen overflow-x-hidden bg-background text-foreground">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -59,6 +61,12 @@ const Index = () => (
         </main>
       </div>
     </div>
+  );
+}
+
+const Index = () => (
+  <StoreProvider>
+    <Shell />
   </StoreProvider>
 );
 

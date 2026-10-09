@@ -47,7 +47,6 @@ export interface User {
   role: string;
   status: "active" | "banned" | "pending";
   groups: string[];
-  password: string;
   createdAt: string;
 }
 

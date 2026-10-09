@@ -2,7 +2,19 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, R
 import { DB, LogEntry, Permission, Role, User } from "./types";
 import { createSeed, uid } from "./seed";
 
-const KEY = "testpad_studio_v6";
+const KEY = "testpad_studio_v7";
+const TOKEN_KEY = "testpad_token";
+const AUTH_URL = "https://functions.poehali.dev/52562ad2-70e3-47e9-9c50-cb97b406b2ad";
+
+async function authCall(body: Record<string, string>) {
+  const res = await fetch(AUTH_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Auth-Token": localStorage.getItem(TOKEN_KEY) || "" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, data };
+}
 
 function load(): DB {
   try {
@@ -24,7 +36,8 @@ interface Ctx {
   log: (action: string, category: LogEntry["category"]) => void;
   can: (p: Permission) => boolean;
   roleOf: (id: string) => Role | undefined;
-  login: (username: string, password: string) => string | null;
+  login: (username: string, password: string) => Promise<string | null>;
+  register: (f: { username: string; nickname: string; fullName: string; password: string }) => Promise<string | null>;
   logout: () => void;
   reset: () => void;
 }
@@ -83,27 +96,73 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const can = useCallback((p: Permission) => !!role && role.permissions.includes(p), [role]);
   const roleOf = useCallback((id: string) => db.roles.find((r) => r.id === id), [db.roles]);
 
-  const login = useCallback(
-    (username: string, password: string) => {
-      const u = db.users.find(
-        (x) => (x.username.toLowerCase() === username.toLowerCase() || x.nickname.toLowerCase() === username.toLowerCase())
-      );
-      if (!u || u.password !== password) {
-        log(`Неудачная попытка входа (${username})`, "auth");
-        return "Неверный логин или пароль";
+  const applyUser = useCallback((u: User) => {
+    setDb((d) => {
+      const exists = d.users.some((x) => x.id === u.id);
+      const users = exists ? d.users.map((x) => (x.id === u.id ? { ...x, ...u, groups: x.groups } : x)) : [...d.users, { ...u, groups: [] }];
+      return { ...d, users, sessionUserId: u.id };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!localStorage.getItem(TOKEN_KEY)) {
+      setDb((d) => ({ ...d, sessionUserId: null }));
+      return;
+    }
+    authCall({ action: "me" }).then(({ ok, data }) => {
+      if (ok && data.user) applyUser(data.user);
+      else {
+        localStorage.removeItem(TOKEN_KEY);
+        setDb((d) => ({ ...d, sessionUserId: null }));
       }
-      if (u.status === "banned") return "Аккаунт заблокирован";
-      if (u.status === "pending") return "Аккаунт ожидает одобрения";
-      setDb((d) => ({ ...d, sessionUserId: u.id }));
-      setTimeout(() => log("Вошёл в систему", "auth"), 0);
+    }).catch(() => undefined);
+  }, [applyUser]);
+
+  const finishAuth = useCallback(
+    (data: { user: User; token: string }, msg: string) => {
+      localStorage.setItem(TOKEN_KEY, data.token);
+      applyUser(data.user);
+      setTimeout(() => log(msg, "auth"), 0);
       setView("home");
-      return null;
     },
-    [db.users, log]
+    [applyUser, log]
+  );
+
+  const login = useCallback(
+    async (username: string, password: string) => {
+      try {
+        const { ok, data } = await authCall({ action: "login", username, password });
+        if (!ok) {
+          log(`Неудачная попытка входа (${username})`, "auth");
+          return data.error || "Не удалось войти";
+        }
+        finishAuth(data, "Вошёл в систему");
+        return null;
+      } catch {
+        return "Нет связи с сервером";
+      }
+    },
+    [log, finishAuth]
+  );
+
+  const register = useCallback(
+    async (f: { username: string; nickname: string; fullName: string; password: string }) => {
+      try {
+        const { ok, data } = await authCall({ action: "register", ...f });
+        if (!ok) return data.error || "Не удалось зарегистрироваться";
+        finishAuth(data, "Зарегистрировался");
+        return null;
+      } catch {
+        return "Нет связи с сервером";
+      }
+    },
+    [finishAuth]
   );
 
   const logout = useCallback(() => {
     log("Вышел из системы", "auth");
+    authCall({ action: "logout" }).catch(() => undefined);
+    localStorage.removeItem(TOKEN_KEY);
     setTimeout(() => setDb((d) => ({ ...d, sessionUserId: null })), 0);
   }, [log]);
 
@@ -113,8 +172,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ db, user, role, view, setView, update, log, can, roleOf, login, logout, reset }),
-    [db, user, role, view, update, log, can, roleOf, login, logout, reset]
+    () => ({ db, user, role, view, setView, update, log, can, roleOf, login, register, logout, reset }),
+    [db, user, role, view, update, log, can, roleOf, login, register, logout, reset]
   );
 
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;
