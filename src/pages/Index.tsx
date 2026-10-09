@@ -1,17 +1,65 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { StoreProvider, useStore } from "@/lib/store";
+import Sidebar, { useVisibleSections } from "@/components/app/Sidebar";
+import Topbar from "@/components/app/Topbar";
+import { Empty } from "@/components/app/PageHeader";
+import Icon from "@/components/ui/icon";
+import Home from "@/components/sections/Home";
+import Tests from "@/components/sections/Tests";
+import Questions from "@/components/sections/Questions";
+import Results from "@/components/sections/Results";
+import Groups from "@/components/sections/Groups";
+import News from "@/components/sections/News";
+import FaqSection from "@/components/sections/FaqSection";
+import Support from "@/components/sections/Support";
+import Profile from "@/components/sections/Profile";
+import DevPanel from "@/components/sections/DevPanel";
+import CustomSection from "@/components/sections/CustomSection";
 
-const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 color-black text-black">Добро пожаловать!</h1>
-        <p className="text-xl text-gray-600">тут будет отображаться ваш проект</p>
+function Content() {
+  const { view, db, user } = useStore();
+  const visible = useVisibleSections();
+
+  if (db.settings.maintenance && user?.role !== "dev" && view !== "profile") {
+    return (
+      <div className="banner-glow flex min-h-[calc(100vh-68px)] flex-col items-center justify-center gap-4 px-6 text-center">
+        <Icon name="Wrench" size={40} className="text-glow" />
+        <h1 className="font-head text-4xl font-medium">Идут технические работы</h1>
+        <p className="text-muted-foreground">Скоро всё заработает. Спасибо за терпение.</p>
       </div>
-      <span className="absolute bottom-8 left-1/2 -translate-x-1/2 inline-block bg-[#FF6637] text-white text-sm px-4 py-2 rounded-full whitespace-nowrap">
-        Подождите 5 минут, Юра создает первую версию проекта с нуля
-      </span>
+    );
+  }
+
+  if (view !== "home" && view !== "profile" && !visible.some((s) => s.id === view)) {
+    return <div className="px-4 py-10 md:px-9"><Empty text="Раздел недоступен для вашей роли" /></div>;
+  }
+
+  switch (view) {
+    case "home": return <Home />;
+    case "tests": return <Tests />;
+    case "questions": return <Questions />;
+    case "results": return <Results />;
+    case "groups": return <Groups />;
+    case "news": return <News />;
+    case "faq": return <FaqSection />;
+    case "support": return <Support />;
+    case "profile": return <Profile />;
+    case "dev": return <DevPanel />;
+    default: return <CustomSection id={view} />;
+  }
+}
+
+const Index = () => (
+  <StoreProvider>
+    <div className="flex min-h-screen overflow-x-hidden bg-background text-foreground">
+      <Sidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Topbar />
+        <main className="flex-1">
+          <Content />
+        </main>
+      </div>
     </div>
-  );
-};
+  </StoreProvider>
+);
 
 export default Index;
