@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 export function useVisibleSections() {
   const { db, user } = useStore();
   return db.sections
-    .filter((s) => (s.visible || user?.role === "dev") && (s.roles.length === 0 || (user && s.roles.includes(user.role))))
+    .filter((s) => (s.visible || user?.role === "dev") && (s.roles.length === 0 || user?.role === "dev" || (user && [user.role, ...(user.extraRoles || [])].some((r) => s.roles.includes(r)))))
     .sort((a, b) => a.order - b.order);
 }
 
@@ -27,6 +27,21 @@ export function SiteLogo({ className }: { className?: string }) {
 function NavItem({ s, onNavigate }: { s: Section; onNavigate?: () => void }) {
   const { view, setView } = useStore();
   const on = view === s.id;
+  if (s.badge || s.subtitle) {
+    return (
+      <button
+        onClick={() => { setView(s.id); onNavigate?.(); }}
+        className={cn("flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition-colors", on ? "border-glow/60 bg-glow/10" : "border-border bg-card/60 hover:border-glow/40")}
+      >
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-glow/15 text-glow"><Icon name={s.icon} fallback="FileText" size={17} /></span>
+        <span className="min-w-0 flex-1 leading-tight">
+          <span className="block truncate font-semibold">{s.title}</span>
+          {s.subtitle && <span className="block truncate text-xs text-muted-foreground">{s.subtitle}</span>}
+        </span>
+        {s.badge && <span className="shrink-0 rounded-full bg-glow px-2 py-0.5 text-[10px] font-bold uppercase text-background">{s.badge}</span>}
+      </button>
+    );
+  }
   return (
     <button
       onClick={() => {

@@ -6,9 +6,10 @@ import { useStore, fmtTime } from "@/lib/store";
 import { uid } from "@/lib/seed";
 import { cn } from "@/lib/utils";
 import PageHeader, { Pill, Empty } from "@/components/app/PageHeader";
+import { Avatar, Gallery, ImagePicker } from "@/components/app/Media";
 
 export default function Support() {
-  const { db, user, can, update, log, roleOf } = useStore();
+  const { db, user, can, update, log, roleOf, openProfile } = useStore();
   const staff = can("tickets.manage");
   const tickets = db.tickets.filter((t) => staff || t.userId === user?.id).sort((a, b) => b.date.localeCompare(a.date));
   const [active, setActive] = useState<string | null>(tickets[0]?.id || null);
@@ -16,25 +17,27 @@ export default function Support() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [reply, setReply] = useState("");
+  const [imgs, setImgs] = useState<string[]>([]);
   const t = db.tickets.find((x) => x.id === active);
 
   if (!user) return <div className="px-4 py-10 md:px-9"><PageHeader title="Поддержка" /><Empty text="Войдите, чтобы создать обращение" /></div>;
 
   const create = () => {
-    if (!subject.trim() || !body.trim()) return;
+    if (!subject.trim() || (!body.trim() && !imgs.length)) return;
     const id = uid("k");
     const now = new Date().toISOString();
-    update((d) => ({ ...d, tickets: [{ id, userId: user.id, subject, status: "open", date: now, messages: [{ id: uid("m"), from: user.id, name: user.nickname, role: user.role, text: body, date: now }] }, ...d.tickets] }));
+    update((d) => ({ ...d, tickets: [{ id, userId: user.id, subject, status: "open", date: now, messages: [{ id: uid("m"), from: user.id, name: user.nickname, role: user.role, text: body, date: now, images: imgs }] }, ...d.tickets] }));
     log(`Создал обращение «${subject}»`, "support");
-    setSubject(""); setBody(""); setCreating(false); setActive(id);
+    setSubject(""); setBody(""); setImgs([]); setCreating(false); setActive(id);
   };
 
   const send = () => {
-    if (!reply.trim() || !t) return;
+    if ((!reply.trim() && !imgs.length) || !t) return;
     const now = new Date().toISOString();
-    update((d) => ({ ...d, tickets: d.tickets.map((x) => (x.id === t.id ? { ...x, messages: [...x.messages, { id: uid("m"), from: user.id, name: user.nickname, role: user.role, text: reply, date: now }] } : x)) }));
+    update((d) => ({ ...d, tickets: d.tickets.map((x) => (x.id === t.id ? { ...x, messages: [...x.messages, { id: uid("m"), from: user.id, name: user.nickname, role: user.role, text: reply, date: now, images: imgs }] } : x)) }));
     log(`Ответил в обращении «${t.subject}»`, "support");
     setReply("");
+    setImgs([]);
   };
 
   const toggleStatus = () => {
@@ -64,7 +67,8 @@ export default function Support() {
               <h3 className="font-head text-xl font-medium">Новое обращение</h3>
               <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Тема" className="rounded-xl bg-background" />
               <Textarea rows={6} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Опишите, что случилось" className="rounded-xl bg-background" />
-              <div className="flex justify-end gap-2"><Pill variant="ghost" onClick={() => setCreating(false)}>Отмена</Pill><Pill onClick={create}>Отправить</Pill></div>
+              <Gallery images={imgs} small onRemove={(i) => setImgs(imgs.filter((_, k) => k !== i))} />
+              <div className="flex justify-between gap-2"><ImagePicker onPick={(u) => setImgs([...imgs, ...u].slice(0, 6))} /><div className="flex gap-2"><Pill variant="ghost" onClick={() => setCreating(false)}>Отмена</Pill><Pill onClick={create}>Отправить</Pill></div></div>
             </div>
           ) : t ? (
             <div className="flex h-full flex-col">
@@ -77,19 +81,27 @@ export default function Support() {
                   const mine = m.from === user.id;
                   const r = roleOf(m.role);
                   return (
-                    <div key={m.id} className={cn("max-w-[85%] rounded-2xl px-4 py-3", mine ? "ml-auto bg-primary text-primary-foreground" : "bg-accent")}>
+                    <div key={m.id} className={cn("flex max-w-[85%] items-start gap-2", mine && "ml-auto flex-row-reverse")}>
+                    <Avatar u={db.users.find((x) => x.id === m.from)} size={32} onClick={() => openProfile(m.from)} />
+                    <div className={cn("min-w-0 rounded-2xl px-4 py-3", mine ? "bg-primary text-primary-foreground" : "bg-accent")}>
                       <div className={cn("mb-1 flex items-center gap-2 text-xs", mine ? "text-primary-foreground/60" : "text-muted-foreground")}>
                         <span className="font-medium">{m.name}</span>{r && <span>· {r.name}</span>}<span>· {fmtTime(m.date)}</span>
                       </div>
-                      {m.text}
+                      <div className="whitespace-pre-line">{m.text}</div>
+                      <Gallery images={m.images} small />
+                    </div>
                     </div>
                   );
                 })}
               </div>
               {t.status === "open" ? (
-                <div className="flex gap-2 border-t border-border pt-4">
+                <div className="border-t border-border pt-4">
+                <Gallery images={imgs} small onRemove={(i) => setImgs(imgs.filter((_, k) => k !== i))} />
+                <div className="mt-2 flex gap-2">
+                  <ImagePicker onPick={(u) => setImgs([...imgs, ...u].slice(0, 6))} className="h-10 w-10 shrink-0 justify-center p-0"><Icon name="ImagePlus" size={17} /></ImagePicker>
                   <Input value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Ваш ответ" className="rounded-full bg-background" />
                   <button onClick={send} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground"><Icon name="ArrowUp" size={18} /></button>
+                </div>
                 </div>
               ) : <p className="border-t border-border pt-4 text-center text-sm text-muted-foreground">Обращение закрыто</p>}
             </div>

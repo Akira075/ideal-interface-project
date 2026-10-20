@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, R
 import { DB, LogEntry, Permission, Role, User } from "./types";
 import { createSeed, uid } from "./seed";
 
-const KEY = "testpad_studio_v7";
+const KEY = "testpad_studio_v8";
 const TOKEN_KEY = "testpad_token";
 const AUTH_URL = "https://functions.poehali.dev/52562ad2-70e3-47e9-9c50-cb97b406b2ad";
 
@@ -32,6 +32,8 @@ interface Ctx {
   role: Role | null;
   view: string;
   setView: (v: string) => void;
+  profileId: string | null;
+  openProfile: (id: string | null) => void;
   update: (fn: (d: DB) => DB) => void;
   log: (action: string, category: LogEntry["category"]) => void;
   can: (p: Permission) => boolean;
@@ -47,6 +49,7 @@ const StoreCtx = createContext<Ctx | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<DB>(load);
   const [view, setView] = useState("home");
+  const [profileId, openProfile] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify(db));
@@ -93,7 +96,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const can = useCallback((p: Permission) => !!role && role.permissions.includes(p), [role]);
+  const can = useCallback(
+    (p: Permission) => {
+      if (!user) return false;
+      if (user.role === "dev") return true;
+      const ids = [user.role, ...(user.extraRoles || [])];
+      return db.roles.some((r) => ids.includes(r.id) && r.permissions.includes(p));
+    },
+    [user, db.roles]
+  );
   const roleOf = useCallback((id: string) => db.roles.find((r) => r.id === id), [db.roles]);
 
   const applyUser = useCallback((u: User) => {
@@ -172,8 +183,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ db, user, role, view, setView, update, log, can, roleOf, login, register, logout, reset }),
-    [db, user, role, view, update, log, can, roleOf, login, register, logout, reset]
+    () => ({ db, user, role, view, setView, profileId, openProfile, update, log, can, roleOf, login, register, logout, reset }),
+    [db, user, role, view, profileId, update, log, can, roleOf, login, register, logout, reset]
   );
 
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;

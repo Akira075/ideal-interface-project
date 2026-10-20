@@ -99,6 +99,19 @@ export default function SitePanel() {
 
       <div className="space-y-4 rounded-2xl bg-card p-6">
         <h3 className="font-head text-xl font-medium">Режимы</h3>
+        <div className="space-y-2 border-b border-border pb-4">
+          <div>Подвал сайта</div>
+          <Input value={s.footerText || ""} onChange={(e) => setS({ ...s, footerText: e.target.value })} placeholder="© 2026 GRAND-ACTIVITY • Admin Dashboard System" className="rounded-xl bg-background" />
+          {(s.footerLinks || []).map((l, i) => (
+            <div key={i} className="grid grid-cols-2 gap-2 md:grid-cols-[1fr_1fr_110px_1fr_40px]">
+              {(["label", "title", "icon", "url"] as const).map((k) => (
+                <Input key={k} value={l[k]} placeholder={{ label: "ANDROID APP", title: "Скачать APK", icon: "Smartphone", url: "https://..." }[k]} onChange={(e) => setS({ ...s, footerLinks: (s.footerLinks || []).map((x, j) => (j === i ? { ...x, [k]: e.target.value } : x)) })} className="h-9 rounded-lg bg-background" />
+              ))}
+              <button onClick={() => setS({ ...s, footerLinks: (s.footerLinks || []).filter((_, j) => j !== i) })} className="grid h-9 place-items-center rounded-lg text-muted-foreground hover:text-destructive"><Icon name="Trash2" size={14} /></button>
+            </div>
+          ))}
+          <button onClick={() => setS({ ...s, footerLinks: [...(s.footerLinks || []), { label: "", title: "", icon: "Link", url: "" }] })} className="text-sm text-muted-foreground hover:text-foreground">+ карточка в подвал</button>
+        </div>
         <div className="flex items-center justify-between gap-4"><div><div>Технические работы</div><div className="text-sm text-muted-foreground">Сайт доступен только разработчику</div></div><Switch checked={s.maintenance} onCheckedChange={(v) => setS({ ...s, maintenance: v })} /></div>
         <div className="flex items-center justify-between gap-4"><div><div>Одобрение регистраций</div><div className="text-sm text-muted-foreground">Новые аккаунты ждут подтверждения</div></div><Switch checked={s.requireApproval} onCheckedChange={(v) => setS({ ...s, requireApproval: v })} /></div>
       </div>

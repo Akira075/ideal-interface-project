@@ -10,6 +10,7 @@ import { useStore } from "@/lib/store";
 import { Section } from "@/lib/types";
 import { uid } from "@/lib/seed";
 import { cn } from "@/lib/utils";
+import { Gallery, ImagePicker } from "@/components/app/Media";
 
 const ICONS = ["FileText", "BookOpen", "Folder", "Star", "Trophy", "Calendar", "Video", "Image", "Map", "Megaphone", "Shield", "Zap", "Heart", "Flag", "Briefcase", "GraduationCap", "Lightbulb", "Puzzle", "Rocket", "Bookmark", "Music", "Globe", "Code", "Gift"];
 
@@ -72,6 +73,16 @@ export default function SectionDialog({ open, onOpenChange, section }: Props) {
             <Label>Описание</Label>
             <Input value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Коротко о разделе" className="rounded-xl bg-card" />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Подпись в меню</Label>
+              <Input value={f.subtitle || ""} onChange={(e) => setF({ ...f, subtitle: e.target.value })} placeholder="Лента и анонсы" className="rounded-xl bg-card" />
+            </div>
+            <div className="space-y-2">
+              <Label>Значок (например СКОРО)</Label>
+              <Input value={f.badge || ""} onChange={(e) => setF({ ...f, badge: e.target.value })} placeholder="СКОРО / NEW" className="rounded-xl bg-card" />
+            </div>
+          </div>
           <div className="space-y-2">
             <Label>Иконка</Label>
             <div className="grid grid-cols-8 gap-1.5">
@@ -91,6 +102,8 @@ export default function SectionDialog({ open, onOpenChange, section }: Props) {
             <div className="space-y-2">
               <Label>Содержимое</Label>
               <Textarea rows={5} value={f.content || ""} onChange={(e) => setF({ ...f, content: e.target.value })} placeholder="Текст раздела. Пустая строка — новый абзац." className="rounded-xl bg-card" />
+              <Gallery images={f.images} small onRemove={(i) => setF({ ...f, images: (f.images || []).filter((_, k) => k !== i) })} />
+              <ImagePicker onPick={(u) => setF({ ...f, images: [...(f.images || []), ...u].slice(0, 12) })}><Icon name="ImagePlus" size={15} />Добавить скрины</ImagePicker>
             </div>
           )}
           <div className="space-y-2">
@@ -101,11 +114,22 @@ export default function SectionDialog({ open, onOpenChange, section }: Props) {
               </button>
               {db.roles.map((r) => (
                 <button key={r.id} type="button" onClick={() => toggleRole(r.id)} className={cn("rounded-full border px-3.5 py-1.5 text-sm", f.roles.includes(r.id) ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground")}>
-                  {r.name}
+                  {r.icon} {r.name}
                 </button>
               ))}
             </div>
           </div>
+          {!f.builtin && (
+            <div className="space-y-2">
+              <Label>Кто может публиковать посты в разделе</Label>
+              <div className="flex flex-wrap gap-2">
+                {db.roles.map((r) => {
+                  const on = (f.postRoles || []).includes(r.id);
+                  return <button key={r.id} type="button" onClick={() => setF({ ...f, postRoles: on ? (f.postRoles || []).filter((x) => x !== r.id) : [...(f.postRoles || []), r.id] })} className={cn("rounded-full border px-3.5 py-1.5 text-sm", on ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground")}>{r.icon} {r.name}</button>;
+                })}
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between rounded-xl bg-card px-4 py-3">
             <div>
               <div className="font-medium">Показывать в меню</div>

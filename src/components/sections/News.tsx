@@ -5,6 +5,7 @@ import Icon from "@/components/ui/icon";
 import { useStore, fmtTime } from "@/lib/store";
 import { uid } from "@/lib/seed";
 import PageHeader, { Pill, Empty } from "@/components/app/PageHeader";
+import { Gallery, ImagePicker } from "@/components/app/Media";
 
 export default function News() {
   const { db, user, can, update, log } = useStore();
@@ -12,13 +13,14 @@ export default function News() {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
+  const [imgs, setImgs] = useState<string[]>([]);
   const list = [...db.news].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.date.localeCompare(a.date));
 
   const publish = () => {
-    if (!title.trim() || !text.trim()) return;
-    update((d) => ({ ...d, news: [{ id: uid("n"), title, text, author: user?.nickname || "", date: new Date().toISOString(), pinned: false }, ...d.news] }));
+    if (!title.trim() || (!text.trim() && !imgs.length)) return;
+    update((d) => ({ ...d, news: [{ id: uid("n"), title, text, author: user?.nickname || "", date: new Date().toISOString(), pinned: false, images: imgs }, ...d.news] }));
     log(`Опубликовал новость «${title}»`, "content");
-    setTitle(""); setText(""); setOpen(false);
+    setTitle(""); setText(""); setImgs([]); setOpen(false);
   };
 
   return (
@@ -28,7 +30,8 @@ export default function News() {
         <div className="mb-6 space-y-3 rounded-2xl bg-card p-5 animate-fade-in">
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Заголовок" className="rounded-xl bg-background" />
           <Textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="Текст новости" className="rounded-xl bg-background" />
-          <div className="flex justify-end"><Pill onClick={publish}>Опубликовать</Pill></div>
+          <Gallery images={imgs} small onRemove={(i) => setImgs(imgs.filter((_, k) => k !== i))} />
+          <div className="flex items-center justify-between gap-2"><ImagePicker onPick={(u) => setImgs([...imgs, ...u].slice(0, 6))} /><Pill onClick={publish}>Опубликовать</Pill></div>
         </div>
       )}
       {list.length ? (
@@ -41,6 +44,7 @@ export default function News() {
               </div>
               <h3 className="font-head text-[1.5em] font-medium">{n.title}</h3>
               <p className="mt-2 whitespace-pre-line text-muted-foreground">{n.text}</p>
+              <Gallery images={n.images} />
               {manage && (
                 <div className="mt-4 flex gap-3 text-sm">
                   <button onClick={() => update((d) => ({ ...d, news: d.news.map((x) => (x.id === n.id ? { ...x, pinned: !x.pinned } : x)) }))} className="text-muted-foreground hover:text-foreground">{n.pinned ? "Открепить" : "Закрепить"}</button>

@@ -37,6 +37,9 @@ export interface Role {
   color: string; // tailwind-safe hsl string
   permissions: Permission[];
   system?: boolean;
+  icon?: string;
+  priority?: number;
+  hoist?: boolean;
 }
 
 export interface User {
@@ -48,6 +51,11 @@ export interface User {
   status: "active" | "banned" | "pending";
   groups: string[];
   createdAt: string;
+  avatar?: string;
+  banner?: string;
+  bio?: string;
+  tags?: string[];
+  extraRoles?: string[];
 }
 
 export interface Section {
@@ -61,12 +69,17 @@ export interface Section {
   description: string;
   content?: string;
   bottom?: boolean;
+  badge?: string;
+  subtitle?: string;
+  images?: string[];
+  postRoles?: string[];
 }
 
 export type QType = "SINGLE" | "MULTIPLE" | "BOOLEAN" | "TEXT";
 
 export interface Question {
   id: string;
+  image?: string;
   title: string;
   category: string;
   type: QType;
@@ -87,6 +100,12 @@ export interface Test {
   groupCode: string;
   isBlocked: boolean;
   createdAt: string;
+  roles?: string[];
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
+  questionLimit?: number;
+  showAnswers?: boolean;
+  image?: string;
 }
 
 export interface Result {
@@ -113,6 +132,16 @@ export interface News {
   author: string;
   date: string;
   pinned: boolean;
+  images?: string[];
+}
+
+export interface Post {
+  id: string;
+  sectionId: string;
+  userId: string;
+  text: string;
+  images?: string[];
+  date: string;
 }
 
 export interface Faq {
@@ -128,6 +157,7 @@ export interface TicketMessage {
   role: string;
   text: string;
   date: string;
+  images?: string[];
 }
 
 export interface Ticket {
@@ -157,6 +187,8 @@ export interface Settings {
   bannerImage: string;
   maintenance: boolean;
   requireApproval: boolean;
+  footerText?: string;
+  footerLinks?: { label: string; title: string; icon: string; url: string }[];
 }
 
 export interface DB {
@@ -170,6 +202,7 @@ export interface DB {
   groups: Group[];
   news: News[];
   faq: Faq[];
+  posts?: Post[];
   tickets: Ticket[];
   logs: LogEntry[];
   sessionUserId: string | null;

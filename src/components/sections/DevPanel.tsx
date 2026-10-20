@@ -7,13 +7,15 @@ import LogsPanel from "@/components/dev/LogsPanel";
 import SectionsPanel from "@/components/dev/SectionsPanel";
 import { RolesPanel, UsersPanel } from "@/components/dev/RolesPanel";
 import SitePanel from "@/components/dev/SitePanel";
+import ConsolePanel from "@/components/dev/ConsolePanel";
 
 const TABS = [
   { id: "logs", label: "Журнал UIA", icon: "ScrollText", perm: "logs.view" },
   { id: "sections", label: "Разделы", icon: "LayoutGrid", perm: "sections.manage" },
   { id: "roles", label: "Роли", icon: "ShieldCheck", perm: "roles.manage" },
   { id: "users", label: "Пользователи", icon: "Users", perm: "users.manage" },
-  { id: "site", label: "Иконка и баннер", icon: "Palette", perm: "site.manage" },
+  { id: "site", label: "Сайт, баннер, подвал", icon: "Palette", perm: "site.manage" },
+  { id: "console", label: "Консоль", icon: "Terminal", perm: "site.manage" },
 ] as const;
 
 export default function DevPanel() {
@@ -31,7 +33,7 @@ export default function DevPanel() {
 
   return (
     <div className="px-4 py-10 md:px-9">
-      <PageHeader title="Панель разработчика" subtitle="Журнал действий, разделы, роли и внешний вид сайта." />
+      <PageHeader title="Админ-панель" subtitle="Полное управление: разделы, роли, пользователи, сайт и консоль команд." />
       <div className="mb-6 grid grid-cols-2 gap-3.5 md:grid-cols-4">
         {stats.map((s) => (
           <div key={s.l} className="rounded-2xl bg-card px-5 py-4">
@@ -53,6 +55,7 @@ export default function DevPanel() {
         {tab === "roles" && <RolesPanel />}
         {tab === "users" && <UsersPanel />}
         {tab === "site" && <SitePanel />}
+        {tab === "console" && <ConsolePanel />}
       </div>
     </div>
   );

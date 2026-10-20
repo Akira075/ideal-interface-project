@@ -14,6 +14,8 @@ import Support from "@/components/sections/Support";
 import Profile, { AuthScreen } from "@/components/sections/Profile";
 import DevPanel from "@/components/sections/DevPanel";
 import CustomSection from "@/components/sections/CustomSection";
+import Footer from "@/components/app/Footer";
+import { ProfileCard } from "@/components/app/Media";
 
 function Content() {
   const { view, db, user } = useStore();
@@ -49,7 +51,7 @@ function Content() {
 }
 
 function Shell() {
-  const { user } = useStore();
+  const { user, profileId, openProfile } = useStore();
   if (!user) return <div className="min-h-screen bg-background text-foreground"><AuthScreen /></div>;
   return (
     <div className="flex min-h-screen overflow-x-hidden bg-background text-foreground">
@@ -59,6 +61,8 @@ function Shell() {
         <main className="flex-1">
           <Content />
         </main>
+        <Footer />
+        <ProfileCard userId={profileId} onClose={() => openProfile(null)} />
       </div>
     </div>
   );
