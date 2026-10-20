@@ -4,10 +4,10 @@ import { useStore, fmtTime } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import PageHeader, { Empty } from "@/components/app/PageHeader";
 import { Avatar } from "@/components/app/Media";
+import { CHAT_URL, withQuery } from "@/lib/api";
 
-const CHAT_URL = "https://functions.poehali.dev/0189b12c-ce43-4ea2-a054-2f68f98dbf0d";
 
-interface Msg { id: number; userId: string; nickname: string; text: string; mentions: string[]; date: string; role: string }
+interface Msg { id: number | string; seq?: number; userId: string; nickname: string; text: string; mentions: string[]; date: string; role: string }
 interface ChatUser { id: string; nickname: string; role: string }
 
 const headers = () => ({ "Content-Type": "application/json", "X-Auth-Token": localStorage.getItem("testpad_token") || "" });
@@ -33,13 +33,14 @@ export default function Chat() {
   const lastId = useRef(0);
 
   const load = async () => {
-    const r = await fetch(`${CHAT_URL}?since=${lastId.current}`, { headers: headers() });
+    const r = await fetch(withQuery(CHAT_URL, `since=${lastId.current}`), { headers: headers() });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) return setErr(d.error || "Чат недоступен");
     setErr("");
     setUsers(d.users || []);
     if (d.messages?.length) {
-      lastId.current = d.messages[d.messages.length - 1].id;
+      const lm = d.messages[d.messages.length - 1];
+      lastId.current = Number(lm.seq ?? lm.id);
       setMsgs((m) => [...m, ...d.messages].slice(-300));
       setTimeout(() => box.current?.scrollTo({ top: box.current.scrollHeight, behavior: "smooth" }), 50);
     }
@@ -64,7 +65,7 @@ export default function Chat() {
     load();
   };
 
-  const del = async (id: number) => {
+  const del = async (id: number | string) => {
     await fetch(CHAT_URL, { method: "POST", headers: headers(), body: JSON.stringify({ action: "delete", id }) });
     setMsgs((x) => x.filter((y) => y.id !== id));
   };

@@ -1,15 +1,26 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from "react";
+import { toast } from "@/hooks/use-toast";
 import { DB, LogEntry, Permission, Role, User } from "./types";
 import { createSeed, uid } from "./seed";
+import { AUTH_URL, PHP, SAVE_URL, STATE_URL, SYNC_COLLS, authHeaders } from "./api";
 
 const KEY = "testpad_studio_v8";
 const TOKEN_KEY = "testpad_token";
-const AUTH_URL = "https://functions.poehali.dev/52562ad2-70e3-47e9-9c50-cb97b406b2ad";
+type Snap = Record<string, Record<string, string>>;
+const snapOf = (d: DB): Snap => {
+  const o: Snap = {};
+  for (const c of SYNC_COLLS) {
+    o[c] = {};
+    for (const it of ((d as unknown as Record<string, { id: string }[]>)[c] || [])) o[c][it.id] = JSON.stringify(it);
+  }
+  o.settings = { main: JSON.stringify(d.settings) };
+  return o;
+};
 
 export async function authCall(body: Record<string, unknown>) {
   const res = await fetch(AUTH_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Auth-Token": localStorage.getItem(TOKEN_KEY) || "" },
+    headers: authHeaders(),
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
@@ -89,6 +100,55 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [db.settings.siteIcon, db.settings.siteName]);
 
   const sessionId = db.sessionUserId;
+  const snap = useRef<Snap | null>(null);
+  const saving = useRef(false);
+
+  const pullState = useCallback(async () => {
+    if (!PHP || saving.current) return;
+    const r = await fetch(STATE_URL, { headers: authHeaders() }).catch(() => null);
+    if (!r || !r.ok) return;
+    const data = await r.json().catch(() => null);
+    if (!data?.db || saving.current) return;
+    setDb((d) => {
+      const n = withNewSections({ ...d, ...data.db, settings: { ...d.settings, ...data.db.settings }, users: d.users, sessionUserId: d.sessionUserId });
+      snap.current = snapOf(n);
+      return n;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!PHP) return;
+    pullState();
+    const t = setInterval(pullState, 20000);
+    return () => clearInterval(t);
+  }, [pullState, sessionId]);
+
+  useEffect(() => {
+    if (!PHP || !snap.current || !sessionId) return;
+    const t = setTimeout(async () => {
+      const prev = snap.current;
+      if (!prev) return;
+      const cur = snapOf(db);
+      const changes: Record<string, { up: unknown[]; del: string[] }> = {};
+      for (const c of Object.keys(cur)) {
+        const up = Object.keys(cur[c]).filter((id) => prev[c]?.[id] !== cur[c][id]).map((id) => JSON.parse(cur[c][id]));
+        const del = Object.keys(prev[c] || {}).filter((id) => !(id in cur[c]));
+        if (up.length || del.length) changes[c] = { up, del };
+      }
+      if (!Object.keys(changes).length) return;
+      saving.current = true;
+      snap.current = cur;
+      const r = await fetch(SAVE_URL, { method: "POST", headers: authHeaders(), body: JSON.stringify({ changes }) }).catch(() => null);
+      saving.current = false;
+      if (!r || !r.ok) {
+        const e = r ? (await r.json().catch(() => ({}))).error : "Нет связи с сервером";
+        toast({ title: "Не сохранено на сервере", description: e || "Ошибка", variant: "destructive" });
+        snap.current = prev;
+        pullState();
+      }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [db, sessionId, pullState]);
   const user = db.users.find((u) => u.id === db.sessionUserId) || null;
   const role = user ? db.roles.find((r) => r.id === user.role) || null : null;
 

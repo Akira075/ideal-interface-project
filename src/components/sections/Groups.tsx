@@ -6,7 +6,7 @@ import { uid } from "@/lib/seed";
 import PageHeader, { Pill, Empty } from "@/components/app/PageHeader";
 
 export default function Groups() {
-  const { db, user, can, update, log } = useStore();
+  const { db, user, can, update, log, adminUser } = useStore();
   const manage = can("groups.manage");
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -21,7 +21,11 @@ export default function Groups() {
   };
 
   const toggleMember = (uidv: string, gcode: string) => {
-    update((d) => ({ ...d, users: d.users.map((u) => (u.id === uidv ? { ...u, groups: u.groups.includes(gcode) ? u.groups.filter((x) => x !== gcode) : [...u.groups, gcode] } : u)) }));
+    const u0 = db.users.find((u) => u.id === uidv);
+    if (!u0) return;
+    const groups = u0.groups.includes(gcode) ? u0.groups.filter((x) => x !== gcode) : [...u0.groups, gcode];
+    update((d) => ({ ...d, users: d.users.map((u) => (u.id === uidv ? { ...u, groups } : u)) }));
+    adminUser("update", { id: uidv, groups });
     log(`Изменил состав группы ${gcode}`, "users");
   };
 

@@ -1,0 +1,19 @@
+Options -Indexes
+DirectoryIndex index.html
+<FilesMatch "^(config\.php|seed\.json|schema\.sql|README\.md|.*\.sqlite)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+AddType application/manifest+json .webmanifest
+<FilesMatch "^sw\.js$">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-cache"
+    Header set Service-Worker-Allowed "/"
+  </IfModule>
+</FilesMatch>
