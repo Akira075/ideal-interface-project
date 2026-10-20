@@ -6,7 +6,7 @@ const KEY = "testpad_studio_v8";
 const TOKEN_KEY = "testpad_token";
 const AUTH_URL = "https://functions.poehali.dev/52562ad2-70e3-47e9-9c50-cb97b406b2ad";
 
-async function authCall(body: Record<string, string>) {
+export async function authCall(body: Record<string, unknown>) {
   const res = await fetch(AUTH_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Auth-Token": localStorage.getItem(TOKEN_KEY) || "" },
@@ -52,6 +52,9 @@ interface Ctx {
   login: (username: string, password: string) => Promise<string | null>;
   register: (f: { username: string; nickname: string; fullName: string; password: string }) => Promise<string | null>;
   logout: () => void;
+  refreshUsers: () => Promise<void>;
+  saveProfile: (p: Partial<User>) => Promise<string | null>;
+  adminUser: (action: string, body?: Record<string, unknown>) => Promise<string | null>;
   reset: () => void;
 }
 
@@ -85,6 +88,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     document.title = db.settings.siteName;
   }, [db.settings.siteIcon, db.settings.siteName]);
 
+  const sessionId = db.sessionUserId;
   const user = db.users.find((u) => u.id === db.sessionUserId) || null;
   const role = user ? db.roles.find((r) => r.id === user.role) || null : null;
 
@@ -188,14 +192,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setDb((d) => ({ ...d, sessionUserId: null })), 0);
   }, [log]);
 
+  const refreshUsers = useCallback(async () => {
+    if (!localStorage.getItem(TOKEN_KEY)) return;
+    const { ok, data } = await authCall({ action: "users" }).catch(() => ({ ok: false, data: {} as never }));
+    if (!ok || !data.users) return;
+    setDb((d) => ({
+      ...d,
+      users: (data.users as User[]).map((u) => ({ ...u, groups: u.groups?.length ? u.groups : d.users.find((x) => x.id === u.id)?.groups || [] })),
+      settings: { ...d.settings, requireApproval: data.settings.requireApproval, registrationOpen: data.settings.registrationOpen },
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    refreshUsers();
+    const t = setInterval(refreshUsers, 15000);
+    return () => clearInterval(t);
+  }, [sessionId, refreshUsers]);
+
+  const saveProfile = useCallback(async (p: Partial<User>) => {
+    setDb((d) => ({ ...d, users: d.users.map((u) => (u.id === d.sessionUserId ? { ...u, ...p } : u)) }));
+    const { ok, data } = await authCall({ action: "profile", ...p });
+    if (!ok) return data.error || "Не сохранено";
+    applyUser(data.user);
+    return null;
+  }, [applyUser]);
+
+  const adminUser = useCallback(async (action: string, body: Record<string, unknown> = {}) => {
+    const { ok, data } = await authCall({ action, ...body });
+    if (!ok) return data.error || "Ошибка";
+    refreshUsers();
+    return null;
+  }, [refreshUsers]);
+
   const reset = useCallback(() => {
     setDb(withNewSections(createSeed()));
     setView("home");
   }, []);
 
   const value = useMemo(
-    () => ({ db, user, role, view, setView, profileId, openProfile, update, log, can, roleOf, login, register, logout, reset }),
-    [db, user, role, view, profileId, update, log, can, roleOf, login, register, logout, reset]
+    () => ({ db, user, role, view, setView, profileId, openProfile, update, log, can, roleOf, login, register, logout, reset, refreshUsers, saveProfile, adminUser }),
+    [db, user, role, view, profileId, update, log, can, roleOf, login, register, logout, reset, refreshUsers, saveProfile, adminUser]
   );
 
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;

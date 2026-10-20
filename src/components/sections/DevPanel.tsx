@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import PageHeader, { Empty } from "@/components/app/PageHeader";
 import LogsPanel from "@/components/dev/LogsPanel";
 import SectionsPanel from "@/components/dev/SectionsPanel";
-import { RolesPanel, UsersPanel } from "@/components/dev/RolesPanel";
+import { RolesPanel, UsersPanel, OnlinePanel } from "@/components/dev/RolesPanel";
 import SitePanel from "@/components/dev/SitePanel";
 import ConsolePanel from "@/components/dev/ConsolePanel";
 
@@ -14,6 +14,7 @@ const TABS = [
   { id: "sections", label: "Разделы", icon: "LayoutGrid", perm: "sections.manage" },
   { id: "roles", label: "Роли", icon: "ShieldCheck", perm: "roles.manage" },
   { id: "users", label: "Пользователи", icon: "Users", perm: "users.manage" },
+  { id: "online", label: "Онлайн", icon: "Radio", perm: "users.manage" },
   { id: "site", label: "Сайт, баннер, подвал", icon: "Palette", perm: "site.manage" },
   { id: "console", label: "Консоль", icon: "Terminal", perm: "site.manage" },
 ] as const;
@@ -54,6 +55,7 @@ export default function DevPanel() {
         {tab === "sections" && <SectionsPanel />}
         {tab === "roles" && <RolesPanel />}
         {tab === "users" && <UsersPanel />}
+        {tab === "online" && <OnlinePanel />}
         {tab === "site" && <SitePanel />}
         {tab === "console" && <ConsolePanel />}
       </div>

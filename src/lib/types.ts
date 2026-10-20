@@ -195,6 +195,7 @@ export interface Settings {
   bannerImage: string;
   maintenance: boolean;
   requireApproval: boolean;
+  registrationOpen?: boolean;
   footerText?: string;
   footerLinks?: { label: string; title: string; icon: string; url: string }[];
 }

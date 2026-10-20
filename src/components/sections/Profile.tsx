@@ -53,7 +53,7 @@ export function AuthScreen() {
 }
 
 export default function Profile() {
-  const { db, user, update, log, logout, openProfile, can } = useStore();
+  const { db, user, log, logout, openProfile, can, saveProfile } = useStore();
   const [fullName, setFullName] = useState(user?.fullName || "");
   const [nick, setNick] = useState(user?.nickname || "");
   const [bio, setBio] = useState(user?.bio || "");
@@ -64,13 +64,14 @@ export default function Profile() {
   const passed = myResults.filter((r) => r.passed).length;
   const roles = userRoles(user, db.roles);
 
-  const patch = (p: Partial<typeof user>, msg: string) => {
-    update((d) => ({ ...d, users: d.users.map((u) => (u.id === user.id ? { ...u, ...p } : u)) }));
+  const patch = async (p: Partial<typeof user>, msg: string) => {
+    const e = await saveProfile(p);
+    if (e) return toast({ title: e, variant: "destructive" });
     log(msg, "users");
   };
   const save = () => {
     patch({ fullName, nickname: nick || user.nickname, bio, tags: tags.split(/[,#]/).map((t) => t.trim()).filter(Boolean).slice(0, 10) }, "Изменил профиль");
-    toast({ title: "Профиль сохранён" });
+    toast({ title: "Сохраняю профиль…" });
   };
 
   return (

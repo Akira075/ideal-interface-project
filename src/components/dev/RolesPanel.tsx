@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import Icon from "@/components/ui/icon";
-import { useStore, fmtTime } from "@/lib/store";
+import { useStore, fmtTime, authCall } from "@/lib/store";
 import { PERMISSIONS, Role } from "@/lib/types";
 
 function hexToHsl(hex: string) {
@@ -112,63 +113,134 @@ export function RolesPanel() {
   );
 }
 
-export function UsersPanel() {
-  const { db, user: me, update, log, roleOf, openProfile } = useStore();
-  const [q, setQ] = useState("");
-  const list = db.users.filter((u) => (u.username + u.nickname + u.fullName).toLowerCase().includes(q.toLowerCase()));
+function CreateUser({ onDone }: { onDone: () => void }) {
+  const { db, adminUser } = useStore();
+  const [f, setF] = useState({ username: "", nickname: "", fullName: "", password: "", role: "student" });
+  const [err, setErr] = useState("");
+  const submit = async () => {
+    const e = await adminUser("create", f);
+    if (e) return setErr(e);
+    toast({ title: `Аккаунт @${f.username} создан` });
+    onDone();
+  };
+  return (
+    <div className="grid gap-2 rounded-2xl bg-card p-4 md:grid-cols-[1fr_1fr_1fr_1fr_160px_auto]">
+      {(["username", "nickname", "fullName", "password"] as const).map((k) => (
+        <Input key={k} value={f[k]} type={k === "password" ? "text" : "text"} placeholder={{ username: "Логин (латиница)", nickname: "Ник", fullName: "Имя", password: "Пароль от 6" }[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} className="h-10 rounded-xl bg-background" />
+      ))}
+      <select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} className="h-10 rounded-xl border border-border bg-background px-3 text-sm">
+        {db.roles.map((r) => <option key={r.id} value={r.id}>{r.icon} {r.name}</option>)}
+      </select>
+      <Pill onClick={submit} className="justify-center">Создать</Pill>
+      {err && <p className="text-sm text-destructive md:col-span-6">{err}</p>}
+    </div>
+  );
+}
 
-  const setRole = (id: string, role: string) => {
-    if (id === me?.id && role !== "dev") return;
-    const u = db.users.find((x) => x.id === id);
-    update((d) => ({ ...d, users: d.users.map((x) => (x.id === id ? { ...x, role } : x)) }));
-    log(`Выдал роль «${roleOf(role)?.name}» пользователю @${u?.username}`, "users");
+export function UsersPanel() {
+  const { db, user: me, log, roleOf, openProfile, adminUser, refreshUsers } = useStore();
+  const [q, setQ] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [st, setSt] = useState("all");
+  const list = db.users.filter((u) => (st === "all" || u.status === st) && (u.username + u.nickname + u.fullName).toLowerCase().includes(q.toLowerCase()));
+  const pending = db.users.filter((u) => u.status === "pending").length;
+
+  const act = async (action: string, body: Record<string, unknown>, msg: string) => {
+    const e = await adminUser(action, body);
+    if (e) return toast({ title: e, variant: "destructive" });
+    log(msg, "users");
+    toast({ title: msg });
   };
-  const toggleExtra = (id: string, rid: string) => {
-    update((d) => ({ ...d, users: d.users.map((x) => (x.id === id ? { ...x, extraRoles: x.extraRoles?.includes(rid) ? x.extraRoles.filter((y) => y !== rid) : [...(x.extraRoles || []), rid] } : x)) }));
-    log(`Изменил доп. роли пользователя`, "users");
-  };
-  const setStatus = (id: string, status: "active" | "banned") => {
-    const u = db.users.find((x) => x.id === id);
-    update((d) => ({ ...d, users: d.users.map((x) => (x.id === id ? { ...x, status } : x)) }));
-    log(`${status === "banned" ? "Заблокировал" : "Активировал"} @${u?.username}`, "users");
-  };
+  const isOn = (k: "registrationOpen" | "requireApproval") => (k === "registrationOpen" ? db.settings.registrationOpen !== false : !!db.settings.requireApproval);
+  const toggleSetting = (k: "registrationOpen" | "requireApproval") => act("settings", { [k]: !isOn(k) }, "Настройки регистрации изменены");
 
   return (
-    <div className="space-y-5">
-      <div className="relative max-w-sm">
-        <Icon name="Search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск пользователя" className="rounded-full bg-card pl-10" />
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl bg-card px-5 py-4">
+        {([["registrationOpen", "Регистрация открыта"], ["requireApproval", "Новые заявки одобряет администратор"]] as const).map(([k, l]) => (
+          <button key={k} onClick={() => toggleSetting(k)} className="flex items-center gap-2 text-sm">
+            <Icon name={isOn(k) ? "CircleCheck" : "Circle"} size={18} className={isOn(k) ? "text-ok" : "text-muted-foreground"} />{l}
+          </button>
+        ))}
+        <Pill onClick={() => setCreating(!creating)} className="bg-ok text-background"><Icon name="UserPlus" size={15} />Создать аккаунт</Pill>
+        <button onClick={() => refreshUsers()} className="ml-auto text-sm text-muted-foreground hover:text-foreground"><Icon name="RefreshCw" size={14} className="mr-1 inline" />Обновить</button>
+      </div>
+      {creating && <CreateUser onDone={() => setCreating(false)} />}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative min-w-[220px] max-w-sm flex-1">
+          <Icon name="Search" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск пользователя" className="rounded-full bg-card pl-10" />
+        </div>
+        {[["all", `Все · ${db.users.length}`], ["pending", `Заявки · ${pending}`], ["banned", "Заблокированы"]].map(([k, l]) => (
+          <button key={k} onClick={() => setSt(k)} className={cn("rounded-full px-4 py-2 text-sm", st === k ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground")}>{l}</button>
+        ))}
       </div>
       <div className="overflow-hidden rounded-2xl border border-border">
-        {list.map((u, i) => {
-          return (
-            <div key={u.id} className={cn("flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-card", i && "border-t border-border")}>
-              <Avatar u={u} size={40} onClick={() => openProfile(u.id)} />
-              <div className="min-w-[160px] flex-1">
-                <div className="font-medium">{u.nickname} <span className="font-normal text-muted-foreground">@{u.username}</span></div>
-                <div className="text-xs text-muted-foreground">{u.fullName} · с {fmtTime(u.createdAt)}</div>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {(u.extraRoles || []).map((rid) => { const x = roleOf(rid); return x ? <button key={rid} onClick={() => toggleExtra(u.id, rid)} title="Снять роль"><RoleBadge r={x} small /></button> : null; })}
-                  <select value="" onChange={(e) => e.target.value && toggleExtra(u.id, e.target.value)} className="rounded-md border border-dashed border-border bg-transparent px-1 text-[11px] text-muted-foreground outline-none">
-                    <option value="">+ роль</option>
-                    {db.roles.filter((x) => x.id !== u.role && !u.extraRoles?.includes(x.id)).map((x) => <option key={x.id} value={x.id}>{x.icon} {x.name}</option>)}
-                  </select>
-                </div>
+        {list.map((u, i) => (
+          <div key={u.id} className={cn("flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-card", i && "border-t border-border")}>
+            <Avatar u={u} size={40} onClick={() => openProfile(u.id)} />
+            <div className="min-w-[160px] flex-1">
+              <div className="font-medium">{u.nickname} <span className="font-normal text-muted-foreground">@{u.username}</span></div>
+              <div className="text-xs text-muted-foreground">{u.fullName} · с {fmtTime(u.createdAt)}</div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {(u.extraRoles || []).map((rid) => { const x = roleOf(rid); return x ? <button key={rid} onClick={() => act("update", { id: u.id, extraRoles: (u.extraRoles || []).filter((y) => y !== rid) }, "Доп. роль снята")} title="Снять роль"><RoleBadge r={x} small /></button> : null; })}
+                <select value="" onChange={(e) => e.target.value && act("update", { id: u.id, extraRoles: [...(u.extraRoles || []), e.target.value] }, "Доп. роль выдана")} className="rounded-md border border-dashed border-border bg-transparent px-1 text-[11px] text-muted-foreground outline-none">
+                  <option value="">+ роль</option>
+                  {db.roles.filter((x) => x.id !== u.role && !u.extraRoles?.includes(x.id)).map((x) => <option key={x.id} value={x.id}>{x.icon} {x.name}</option>)}
+                </select>
               </div>
-              <span className={cn("rounded-full px-2.5 py-0.5 text-xs", u.status === "active" ? "bg-ok/15 text-ok" : u.status === "pending" ? "bg-warn/15 text-warn" : "bg-destructive/15 text-destructive")}>
-                {u.status === "active" ? "активен" : u.status === "pending" ? "ожидает" : "заблокирован"}
-              </span>
-              <select value={u.role} onChange={(e) => setRole(u.id, e.target.value)} className="rounded-full border border-border bg-card px-3 py-1.5 text-sm outline-none">
-                {db.roles.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-              </select>
-              {u.id !== me?.id && (
-                u.status === "active"
-                  ? <button onClick={() => setStatus(u.id, "banned")} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-destructive" title="Заблокировать"><Icon name="Ban" size={15} /></button>
-                  : <button onClick={() => setStatus(u.id, "active")} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-ok" title="Одобрить"><Icon name="CheckCircle2" size={15} /></button>
-              )}
+            </div>
+            <span className={cn("rounded-full px-2.5 py-0.5 text-xs", u.status === "active" ? "bg-ok/15 text-ok" : u.status === "pending" ? "bg-warn/15 text-warn" : "bg-destructive/15 text-destructive")}>
+              {u.status === "active" ? "активен" : u.status === "pending" ? "ожидает" : "заблокирован"}
+            </span>
+            <select value={u.role} disabled={u.id === me?.id} onChange={(e) => act("update", { id: u.id, role: e.target.value }, `Роль @${u.username} изменена`)} className="rounded-full border border-border bg-card px-3 py-1.5 text-sm outline-none">
+              {db.roles.map((x) => <option key={x.id} value={x.id}>{x.icon} {x.name}</option>)}
+            </select>
+            {u.id !== me?.id && (
+              <>
+                <button onClick={() => { const p = prompt(`Новый пароль для @${u.username} (от 6 символов)`); if (p) act("setpass", { id: u.id, password: p }, "Пароль изменён"); }} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground" title="Сменить пароль"><Icon name="KeyRound" size={15} /></button>
+                <button onClick={() => act("kick", { id: u.id }, `@${u.username} выкинут с сайта`)} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-warn" title="Выкинуть"><Icon name="LogOut" size={15} /></button>
+                {u.status === "active"
+                  ? <button onClick={() => act("update", { id: u.id, status: "banned" }, `@${u.username} заблокирован`)} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-destructive" title="Заблокировать"><Icon name="Ban" size={15} /></button>
+                  : <button onClick={() => act("update", { id: u.id, status: "active" }, `@${u.username} одобрен`)} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-ok" title="Одобрить / разблокировать"><Icon name="CheckCircle2" size={15} /></button>}
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function OnlinePanel() {
+  const { user: me, roleOf, openProfile, adminUser } = useStore();
+  const [list, setList] = useState<{ id: string; nickname: string; role: string; ago: number }[]>([]);
+  useEffect(() => {
+    const load = () => authCall({ action: "online" }).then(({ ok, data }) => ok && setList(data.online || []));
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">Кто открыт на сайте прямо сейчас. Обновляется каждые 5 секунд.</p>
+        <Pill variant="outline" onClick={async () => { const e = await adminUser("kickall"); toast({ title: e || "Все, кроме вас, выкинуты" }); }}>Выкинуть всех</Pill>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-border">
+        {list.length ? list.map((u, i) => {
+          const r = roleOf(u.role);
+          return (
+            <div key={u.id} className={cn("flex items-center gap-3 px-4 py-3", i && "border-t border-border")}>
+              <span className="h-2 w-2 rounded-full bg-ok" />
+              <button onClick={() => openProfile(u.id)} className="flex-1 text-left">
+                <div className="font-medium">{u.nickname}</div>
+                <div className="text-xs text-muted-foreground">{r ? `${r.icon || ""} ${r.name}` : u.role} · был активен {u.ago} с назад</div>
+              </button>
+              {u.id !== me?.id && <Pill variant="outline" onClick={async () => { const e = await adminUser("kick", { id: u.id }); toast({ title: e || `${u.nickname} выкинут` }); setList((l) => l.filter((x) => x.id !== u.id)); }} className="text-sm">Выкинуть</Pill>}
             </div>
           );
-        })}
+        }) : <div className="p-6 text-center text-muted-foreground">Никого нет в сети</div>}
       </div>
     </div>
   );
