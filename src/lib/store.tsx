@@ -136,7 +136,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return;
     }
     authCall({ action: "me" }).then(({ ok, data }) => {
-      if (ok && data.user) applyUser(data.user);
+      if (ok && data.user) {
+        applyUser(data.user);
+        if (data.settings) setDb((d) => ({ ...d, settings: { ...d.settings, ...data.settings } }));
+      }
       else {
         localStorage.removeItem(TOKEN_KEY);
         setDb((d) => ({ ...d, sessionUserId: null }));
@@ -199,7 +202,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setDb((d) => ({
       ...d,
       users: (data.users as User[]).map((u) => ({ ...u, groups: u.groups?.length ? u.groups : d.users.find((x) => x.id === u.id)?.groups || [] })),
-      settings: { ...d.settings, requireApproval: data.settings.requireApproval, registrationOpen: data.settings.registrationOpen },
+      settings: { ...d.settings, ...data.settings },
     }));
   }, []);
 

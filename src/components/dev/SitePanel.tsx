@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import Icon from "@/components/ui/icon";
 import { useStore, withNewSections } from "@/lib/store";
 import { createSeed } from "@/lib/seed";
@@ -118,9 +117,8 @@ export default function SitePanel() {
       </div>
 
       <div className="space-y-4 rounded-2xl bg-card p-6">
-        <h3 className="font-head text-xl font-medium">Режимы</h3>
+        <h3 className="font-head text-xl font-medium">Подвал</h3>
         <div className="space-y-2 border-b border-border pb-4">
-          <div>Подвал сайта</div>
           <Input value={s.footerText || ""} onChange={(e) => setS({ ...s, footerText: e.target.value })} placeholder="© 2026 GRAND-ACTIVITY • Admin Dashboard System" className="rounded-xl bg-background" />
           {(s.footerLinks || []).map((l, i) => (
             <div key={i} className="grid grid-cols-2 gap-2 md:grid-cols-[1fr_1fr_110px_1fr_40px]">
@@ -132,8 +130,6 @@ export default function SitePanel() {
           ))}
           <button onClick={() => setS({ ...s, footerLinks: [...(s.footerLinks || []), { label: "", title: "", icon: "Link", url: "" }] })} className="text-sm text-muted-foreground hover:text-foreground">+ карточка в подвал</button>
         </div>
-        <div className="flex items-center justify-between gap-4"><div><div>Технические работы</div><div className="text-sm text-muted-foreground">Сайт доступен только разработчику</div></div><Switch checked={s.maintenance} onCheckedChange={(v) => setS({ ...s, maintenance: v })} /></div>
-        <div className="flex items-center justify-between gap-4"><div><div>Одобрение регистраций</div><div className="text-sm text-muted-foreground">Новые аккаунты ждут подтверждения</div></div><Switch checked={s.requireApproval} onCheckedChange={(v) => setS({ ...s, requireApproval: v })} /></div>
       </div>
 
       <div className="space-y-4 rounded-2xl bg-card p-6">

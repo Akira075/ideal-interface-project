@@ -18,6 +18,7 @@ import Chat from "@/components/sections/Chat";
 import Leaderboard from "@/components/sections/Leaderboard";
 import CallsBase from "@/components/sections/CallsBase";
 import Footer from "@/components/app/Footer";
+import Announcement from "@/components/app/Announcement";
 import { ProfileCard } from "@/components/app/Media";
 
 function Content() {
@@ -29,7 +30,7 @@ function Content() {
       <div className="banner-glow flex min-h-[calc(100vh-68px)] flex-col items-center justify-center gap-4 px-6 text-center">
         <Icon name="Wrench" size={40} className="text-glow" />
         <h1 className="font-head text-4xl font-medium">Идут технические работы</h1>
-        <p className="text-muted-foreground">Скоро всё заработает. Спасибо за терпение.</p>
+        <p className="max-w-md whitespace-pre-line text-muted-foreground">{db.settings.maintenanceText || "Скоро всё заработает. Спасибо за терпение."}</p>
       </div>
     );
   }
@@ -63,6 +64,7 @@ function Shell() {
     <div className="flex min-h-screen overflow-x-hidden bg-background text-foreground">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
+        <Announcement />
         <Topbar />
         <main className="flex-1">
           <Content />

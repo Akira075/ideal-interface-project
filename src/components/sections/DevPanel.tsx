@@ -8,6 +8,7 @@ import SectionsPanel from "@/components/dev/SectionsPanel";
 import { RolesPanel, UsersPanel, OnlinePanel } from "@/components/dev/RolesPanel";
 import SitePanel from "@/components/dev/SitePanel";
 import ConsolePanel from "@/components/dev/ConsolePanel";
+import ModesPanel from "@/components/dev/ModesPanel";
 
 const TABS = [
   { id: "logs", label: "Журнал UIA", icon: "ScrollText", perm: "logs.view" },
@@ -15,6 +16,7 @@ const TABS = [
   { id: "roles", label: "Роли", icon: "ShieldCheck", perm: "roles.manage" },
   { id: "users", label: "Пользователи", icon: "Users", perm: "users.manage" },
   { id: "online", label: "Онлайн", icon: "Radio", perm: "users.manage" },
+  { id: "modes", label: "Плашка и режимы", icon: "Megaphone", perm: "site.manage" },
   { id: "site", label: "Сайт, баннер, подвал", icon: "Palette", perm: "site.manage" },
   { id: "console", label: "Консоль", icon: "Terminal", perm: "site.manage" },
 ] as const;
@@ -56,6 +58,7 @@ export default function DevPanel() {
         {tab === "roles" && <RolesPanel />}
         {tab === "users" && <UsersPanel />}
         {tab === "online" && <OnlinePanel />}
+        {tab === "modes" && <ModesPanel />}
         {tab === "site" && <SitePanel />}
         {tab === "console" && <ConsolePanel />}
       </div>

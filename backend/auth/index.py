@@ -52,7 +52,9 @@ def row_user(r, full: bool = True) -> dict:
 def settings(cur) -> dict:
     cur.execute(f"SELECT key, value FROM {SCHEMA}.site_settings")
     d = dict(cur.fetchall())
-    return {"registrationOpen": d.get("registration_open", "true") == "true", "requireApproval": d.get("require_approval", "false") == "true"}
+    return {"registrationOpen": d.get("registration_open", "true") == "true", "requireApproval": d.get("require_approval", "false") == "true",
+            "maintenance": d.get("maintenance", "false") == "true", "maintenanceText": d.get("maintenance_text", ""),
+            "announcement": d.get("announcement", ""), "announcementType": d.get("announcement_type", "info")}
 
 
 def new_session(cur, uid: int) -> str:
@@ -127,7 +129,8 @@ def handler(event: dict, context) -> dict:
 
         if action == "me":
             cur.execute(f"SELECT {COLS} FROM {SCHEMA}.users WHERE id = {my_id}")
-            return resp(200, {"user": row_user(cur.fetchone())})
+            r = cur.fetchone()
+            return resp(200, {"user": row_user(r), "settings": settings(cur)})
 
         if action == "users":
             cond = "" if staff else " WHERE status = 'active'"
@@ -173,9 +176,15 @@ def handler(event: dict, context) -> dict:
             return resp(403, {"error": "Аккаунт разработчика меняет только разработчик"})
 
         if action == "settings":
-            for k, col in (("registrationOpen", "registration_open"), ("requireApproval", "require_approval")):
+            for k, col in (("registrationOpen", "registration_open"), ("requireApproval", "require_approval"), ("maintenance", "maintenance")):
                 if k in b:
                     cur.execute(f"INSERT INTO {SCHEMA}.site_settings (key, value) VALUES ({q(col)}, {q('true' if b[k] else 'false')}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value")
+            for k, col, lim in (("maintenanceText", "maintenance_text", 300), ("announcement", "announcement", 500), ("announcementType", "announcement_type", 10)):
+                if k in b:
+                    v = str(b[k] or "")[:lim]
+                    if k == "announcementType" and v not in ("info", "ok", "warn"):
+                        v = "info"
+                    cur.execute(f"INSERT INTO {SCHEMA}.site_settings (key, value) VALUES ({q(col)}, {q(v)}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value")
             return resp(200, {"settings": settings(cur)})
 
         if action == "create":

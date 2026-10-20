@@ -196,6 +196,9 @@ export interface Settings {
   maintenance: boolean;
   requireApproval: boolean;
   registrationOpen?: boolean;
+  maintenanceText?: string;
+  announcement?: string;
+  announcementType?: "info" | "ok" | "warn";
   footerText?: string;
   footerLinks?: { label: string; title: string; icon: string; url: string }[];
 }
