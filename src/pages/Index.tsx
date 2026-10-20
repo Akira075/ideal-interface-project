@@ -14,6 +14,9 @@ import Support from "@/components/sections/Support";
 import Profile, { AuthScreen } from "@/components/sections/Profile";
 import DevPanel from "@/components/sections/DevPanel";
 import CustomSection from "@/components/sections/CustomSection";
+import Chat from "@/components/sections/Chat";
+import Leaderboard from "@/components/sections/Leaderboard";
+import CallsBase from "@/components/sections/CallsBase";
 import Footer from "@/components/app/Footer";
 import { ProfileCard } from "@/components/app/Media";
 
@@ -46,6 +49,9 @@ function Content() {
     case "support": return <Support />;
     case "profile": return <Profile />;
     case "dev": return <DevPanel />;
+    case "chat": return <Chat />;
+    case "leaderboard": return <Leaderboard />;
+    case "calls": return <CallsBase />;
     default: return <CustomSection id={view} />;
   }
 }

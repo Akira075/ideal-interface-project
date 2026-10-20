@@ -34,15 +34,18 @@ function Runner({ test, onClose }: { test: Test; onClose: () => void }) {
     return list;
   });
   const [left, setLeft] = useState(test.timeLimit > 0 ? test.timeLimit * 60 : 0);
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [formDone, setFormDone] = useState(!test.preFields?.length);
+  const [code, setCode] = useState("");
   const [i, setI] = useState(0);
   const [ans, setAns] = useState<Record<string, string[]>>({});
   const [done, setDone] = useState<{ score: number; passed: boolean; ok: number } | null>(null);
   const q = qs[i];
   useEffect(() => {
-    if (!test.timeLimit || done) return;
+    if (!test.timeLimit || done || !formDone) return;
     const t = setInterval(() => setLeft((x) => x - 1), 1000);
     return () => clearInterval(t);
-  }, [test.timeLimit, done]);
+  }, [test.timeLimit, done, formDone]);
 
   const pick = (opt: string, multi: boolean) => {
     const cur = ans[q.id] || [];
@@ -62,13 +65,17 @@ function Runner({ test, onClose }: { test: Test; onClose: () => void }) {
     const passed = score >= test.passScore;
     setDone({ score, passed, ok });
     if (user) {
-      update((d) => ({ ...d, results: [{ id: uid("r"), userId: user.id, testId: test.id, nickname: user.nickname, score, passed, date: new Date().toISOString() }, ...d.results] }));
+      const num = Math.max(0, ...db.results.map((r) => r.num || 0)) + 1;
+      const c = "T-" + String(num).padStart(5, "0");
+      setCode(c);
+      const fv = (test.preFields || []).map((f) => ({ id: f.id, label: f.label, value: form[f.id] || "" }));
+      update((d) => ({ ...d, results: [{ id: uid("r"), userId: user.id, testId: test.id, nickname: user.nickname, score, passed, date: new Date().toISOString(), num, code: c, correct: ok, total: qs.length, form: fv }, ...d.results] }));
     }
     log(`Прошёл тест «${test.title}» — ${score}%`, "tests");
   };
 
   useEffect(() => {
-    if (test.timeLimit && left <= 0 && !done && qs.length) finish();
+    if (test.timeLimit && formDone && left <= 0 && !done && qs.length) finish();
   });
 
   return (
@@ -84,6 +91,7 @@ function Runner({ test, onClose }: { test: Test; onClose: () => void }) {
             </div>
             <div className="font-head text-5xl font-medium">{done.score}%</div>
             <div className="text-sm text-muted-foreground">{done.ok} из {qs.length} баллов</div>
+            {code && <div className="rounded-full bg-accent px-4 py-1.5 font-mono text-sm">ID прохождения: {code}</div>}
             <p className="text-muted-foreground">{done.passed ? "Тест пройден. Отличная работа." : `Нужно минимум ${test.passScore}%. Попробуйте ещё раз.`}</p>
             {test.showAnswers && (
               <div className="w-full space-y-2 text-left">
@@ -102,6 +110,22 @@ function Runner({ test, onClose }: { test: Test; onClose: () => void }) {
               </div>
             )}
             <Pill onClick={onClose}>Готово</Pill>
+          </div>
+        ) : !formDone ? (
+          <div className="space-y-4">
+            {test.preText && <p className="whitespace-pre-line rounded-xl bg-card p-4 text-sm text-muted-foreground">{test.preText}</p>}
+            {(test.preFields || []).map((f) => (
+              <div key={f.id} className="space-y-2">
+                <Label>{f.label}</Label>
+                {f.type === "select" ? (
+                  <select value={form[f.id] || ""} onChange={(e) => setForm({ ...form, [f.id]: e.target.value })} className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-base outline-none">
+                    <option value="">Выберите…</option>
+                    {(f.options || []).map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                ) : <Input value={form[f.id] || ""} onChange={(e) => setForm({ ...form, [f.id]: e.target.value })} className="rounded-xl bg-card" />}
+              </div>
+            ))}
+            <DialogFooter><Button className="rounded-full px-6" disabled={(test.preFields || []).some((f) => !(form[f.id] || "").trim())} onClick={() => setFormDone(true)}>Начать тест</Button></DialogFooter>
           </div>
         ) : !q ? (
           <Empty text="В тесте пока нет вопросов" />
@@ -173,6 +197,19 @@ function TestEditor({ test, onClose }: { test: Test | null; onClose: () => void 
             <div className="space-y-2"><Label>Проходной, %</Label><Input type="number" value={f.passScore} onChange={(e) => setF({ ...f, passScore: +e.target.value })} className="rounded-xl bg-card" /></div>
             <div className="space-y-2"><Label>Минут</Label><Input type="number" value={f.timeLimit} onChange={(e) => setF({ ...f, timeLimit: +e.target.value })} className="rounded-xl bg-card" /></div>
             <div className="space-y-2"><Label>Попыток (0 = ∞)</Label><Input type="number" value={f.maxAttempts} onChange={(e) => setF({ ...f, maxAttempts: +e.target.value })} className="rounded-xl bg-card" /></div>
+          </div>
+          <div className="space-y-2 rounded-xl border border-border p-3">
+            <Label>Анкета перед тестом</Label>
+            <Textarea rows={2} value={f.preText || ""} onChange={(e) => setF({ ...f, preText: e.target.value })} placeholder="Инструкция для участника (необязательно)" className="rounded-xl bg-card" />
+            {(f.preFields || []).map((pf, k) => (
+              <div key={pf.id} className="grid grid-cols-[1fr_110px_36px] gap-2">
+                <Input value={pf.label} placeholder="Поле, например «Имя кандидата»" onChange={(e) => setF({ ...f, preFields: (f.preFields || []).map((x, j) => (j === k ? { ...x, label: e.target.value } : x)) })} className="h-9 rounded-lg bg-card" />
+                <select value={pf.type} onChange={(e) => setF({ ...f, preFields: (f.preFields || []).map((x, j) => (j === k ? { ...x, type: e.target.value as "text" | "select" } : x)) })} className="rounded-lg border border-border bg-card px-2 text-sm"><option value="text">Текст</option><option value="select">Список</option></select>
+                <button onClick={() => setF({ ...f, preFields: (f.preFields || []).filter((_, j) => j !== k) })} className="text-muted-foreground hover:text-destructive"><Icon name="X" size={15} /></button>
+                {pf.type === "select" && <Input value={(pf.options || []).join("; ")} placeholder="Варианты через ;" onChange={(e) => setF({ ...f, preFields: (f.preFields || []).map((x, j) => (j === k ? { ...x, options: e.target.value.split(";").map((o) => o.trim()).filter(Boolean) } : x)) })} className="col-span-3 h-9 rounded-lg bg-card" />}
+              </div>
+            ))}
+            <button onClick={() => setF({ ...f, preFields: [...(f.preFields || []), { id: uid("pf"), label: "", type: "text" }] })} className="text-sm text-muted-foreground hover:text-foreground">+ поле анкеты</button>
           </div>
           <div className="space-y-2">
             <Label>Обложка теста</Label>

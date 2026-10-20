@@ -4,8 +4,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import Icon from "@/components/ui/icon";
-import { useStore } from "@/lib/store";
-import { Settings } from "@/lib/types";
+import { useStore, withNewSections } from "@/lib/store";
+import { createSeed } from "@/lib/seed";
+import { DB, Settings } from "@/lib/types";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Pill } from "@/components/app/PageHeader";
@@ -43,7 +44,26 @@ export default function SitePanel() {
     r.onload = () => {
       try {
         const data = JSON.parse(String(r.result));
-        update(() => data);
+        if (data.format === "testpad-backup-v1" && Array.isArray(data.coll)) {
+          const by: Record<string, unknown[]> = {};
+          let settings: Record<string, unknown> | null = null;
+          for (const row of data.coll as { c: string; data: string }[]) {
+            const item = JSON.parse(row.data);
+            if (row.c === "settings") settings = item;
+            else (by[row.c] ||= []).push(item);
+          }
+          const users = (data.users as { id: string; username: string; nickname: string; data: string }[]).map((u) => ({ id: u.id, username: u.username, nickname: u.nickname, ...JSON.parse(u.data || "{}") }));
+          update((d) => withNewSections({
+            ...d,
+            settings: settings ? { ...d.settings, ...settings } : d.settings,
+            users: [...d.users.filter((x) => !users.some((y) => y.username.toLowerCase() === x.username.toLowerCase())), ...users],
+            ...Object.fromEntries(["roles", "sections", "questions", "tests", "results", "groups", "news", "faq", "tickets", "logs"].filter((k) => by[k]?.length).map((k) => [k, by[k]])),
+          } as DB));
+          toast({ title: "Данные 3.7 перенесены", description: `Тестов: ${by.tests?.length || 0}, новостей: ${by.news?.length || 0}, результатов: ${by.results?.length || 0}` });
+          setTimeout(() => log("Импортировал копию 3.7", "system"), 0);
+          return;
+        }
+        update(() => withNewSections({ ...createSeed(), ...data }));
         toast({ title: "Копия восстановлена" });
         setTimeout(() => log("Восстановил резервную копию", "system"), 0);
       } catch {
@@ -118,11 +138,11 @@ export default function SitePanel() {
 
       <div className="space-y-4 rounded-2xl bg-card p-6">
         <h3 className="font-head text-xl font-medium">Резервные копии</h3>
-        <p className="text-sm text-muted-foreground">Пользователи, тесты, вопросы, группы, новости, обращения и журнал — в одном файле.</p>
+        <p className="text-sm text-muted-foreground">«Восстановить» принимает и копию этого сайта, и копию старой версии 3.7 (в 3.7: Панель разработчика → Резервные копии → «Скачать копию с сервера»).</p>
         <div className="flex flex-wrap gap-2">
           <Pill variant="ghost" onClick={backup}><Icon name="Download" size={14} />Скачать копию</Pill>
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-background px-[18px] py-[9px] text-[0.95em] font-medium hover:bg-accent">
-            <Icon name="Upload" size={14} />Восстановить
+            <Icon name="Upload" size={14} />Восстановить / импорт 3.7
             <input type="file" accept="application/json" className="hidden" onChange={(e) => e.target.files?.[0] && restore(e.target.files[0])} />
           </label>
           <Pill variant="outline" onClick={() => { reset(); toast({ title: "Данные сброшены к демо" }); }}><Icon name="RotateCcw" size={14} />Сброс</Pill>

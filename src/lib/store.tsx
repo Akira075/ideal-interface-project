@@ -16,14 +16,25 @@ async function authCall(body: Record<string, string>) {
   return { ok: res.ok, data };
 }
 
+const NEW_SECTIONS = [
+  { id: "chat", title: "Чат", icon: "MessageCircle", order: 4.7, visible: true, roles: [], builtin: true, description: "Общение участников" },
+  { id: "leaderboard", title: "Рейтинг", icon: "Trophy", order: 4.5, visible: true, roles: [], builtin: true, description: "Кто прошёл больше всего тестов" },
+  { id: "calls", title: "База обзвонов", icon: "Phone", order: 4.8, visible: true, roles: ["dev"], builtin: true, description: "ID прохождений, кандидаты и баллы" },
+];
+
+export function withNewSections(d: DB): DB {
+  const add = NEW_SECTIONS.filter((n) => !d.sections.some((s) => s.id === n.id));
+  return add.length ? { ...d, sections: [...d.sections, ...add] } : d;
+}
+
 function load(): DB {
   try {
     const raw = localStorage.getItem(KEY) || localStorage.getItem("testpad_studio_v7");
-    if (raw) return { ...createSeed(), ...JSON.parse(raw) };
+    if (raw) return withNewSections({ ...createSeed(), ...JSON.parse(raw) });
   } catch {
     /* ignore */
   }
-  return createSeed();
+  return withNewSections(createSeed());
 }
 
 interface Ctx {
@@ -178,7 +189,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [log]);
 
   const reset = useCallback(() => {
-    setDb(createSeed());
+    setDb(withNewSections(createSeed()));
     setView("home");
   }, []);
 

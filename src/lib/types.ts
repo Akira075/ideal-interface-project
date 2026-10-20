@@ -106,6 +106,8 @@ export interface Test {
   questionLimit?: number;
   showAnswers?: boolean;
   image?: string;
+  preText?: string;
+  preFields?: { id: string; label: string; type: "text" | "select"; options?: string[] }[];
 }
 
 export interface Result {
@@ -116,6 +118,12 @@ export interface Result {
   score: number;
   passed: boolean;
   date: string;
+  code?: string;
+  num?: number;
+  correct?: number;
+  total?: number;
+  form?: { id: string; label: string; value: string }[];
+  conductedBy?: string;
 }
 
 export interface Group {
