@@ -18,7 +18,7 @@ async function authCall(body: Record<string, string>) {
 
 function load(): DB {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY) || localStorage.getItem("testpad_studio_v7");
     if (raw) return { ...createSeed(), ...JSON.parse(raw) };
   } catch {
     /* ignore */
